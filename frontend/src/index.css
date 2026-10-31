@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Verbatim from the prototype's <style> block. */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.4); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(156, 163, 175, 0.6); }
+.sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.glass-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.dark .glass-card {
+  background: rgba(31, 41, 55, 0.85);
+}
+
+/* #root takes the place of <body> as the flex column. */
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}

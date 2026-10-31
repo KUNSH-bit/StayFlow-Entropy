@@ -3,6 +3,9 @@ node_modules/
 server/node_modules/
 server/dist/
 server/coverage/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
 
 # Local configuration and secrets
 .env

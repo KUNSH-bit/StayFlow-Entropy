@@ -2,6 +2,7 @@ import "dotenv/config";
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
+import { disconnectDatabase } from "./lib/prisma.js";
 
 const app = createApp();
 const server = app.listen(env.PORT, env.HOST, () => {
@@ -21,7 +22,12 @@ function shutDown(signal: NodeJS.Signals): void {
       return;
     }
 
-    process.exitCode = 0;
+    void disconnectDatabase().then(() => {
+      process.exitCode = 0;
+    }).catch((disconnectError: unknown) => {
+      logger.error("database_shutdown_failed", { error: disconnectError instanceof Error ? disconnectError.message : "Unknown error" });
+      process.exitCode = 1;
+    });
   });
 }
 

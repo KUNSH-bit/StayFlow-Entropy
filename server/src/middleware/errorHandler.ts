@@ -6,6 +6,7 @@ export class HttpError extends Error {
   constructor(
     public readonly statusCode: number,
     message: string,
+    public readonly code = "REQUEST_ERROR",
   ) {
     super(message);
     this.name = "HttpError";
@@ -66,7 +67,7 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, request, respo
   if (error instanceof HttpError) {
     response.status(error.statusCode).json({
       error: {
-        code: error.statusCode === 404 ? "NOT_FOUND" : "REQUEST_ERROR",
+        code: error.code,
         message: error.message,
         requestId: request.requestId,
       },
@@ -74,9 +75,25 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, request, respo
     return;
   }
 
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = String(error.code);
+    if (code === "P2002") {
+      response.status(409).json({ error: { code: "CONFLICT", message: "A record with those details already exists.", requestId: request.requestId } });
+      return;
+    }
+    if (code === "P2003" || code === "P2025") {
+      response.status(404).json({ error: { code: "NOT_FOUND", message: "The requested record was not found.", requestId: request.requestId } });
+      return;
+    }
+    if (code === "P2034") {
+      response.status(409).json({ error: { code: "CONFLICT", message: "The record changed while this request was being processed. Please retry.", requestId: request.requestId } });
+      return;
+    }
+  }
+
   logger.error("unhandled_request_error", {
     requestId: request.requestId,
-    error: error instanceof Error ? error.message : "Unknown error",
+    error: error instanceof Error ? error.name : "Unknown error",
   });
 
   response.status(500).json({

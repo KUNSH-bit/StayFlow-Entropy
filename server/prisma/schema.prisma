@@ -1,0 +1,433 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  MANAGER
+  FRONT_DESK
+  HOUSEKEEPING
+  VIEWER
+}
+
+enum RoomStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  DIRTY
+  CLEANING
+  INSPECTED
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum HousekeepingStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum GuestRequestStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Hotel {
+  id                       String   @id @default(uuid()) @db.Uuid
+  name                     String   @db.VarChar(255)
+  subdomain                String   @unique @db.VarChar(100)
+  timeZone                 String   @default("Asia/Kolkata") @map("time_zone") @db.VarChar(100)
+  currency                 String   @default("INR") @db.VarChar(3)
+  calendarFeedTokenHash    String?  @unique @map("calendar_feed_token_hash") @db.VarChar(64)
+  inboundEmailAddress     String?  @unique @map("inbound_email_address") @db.VarChar(255)
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships       HotelMembership[]
+  roomTypes         RoomType[]
+  rooms             Room[]
+  guests            Guest[]
+  bookings          Booking[]
+  invoices          Invoice[]
+  payments          Payment[]
+  employees         Employee[]
+  staffSchedules    StaffSchedule[]
+  housekeepingTasks HousekeepingTask[]
+  guestRequests     GuestRequest[]
+  inboundEmails     InboundEmail[]
+  outboundEmails    OutboundEmail[]
+  calendarOAuthStates CalendarOAuthState[]
+  googleCalendar    GoogleCalendarIntegration?
+  membershipInvites MembershipInvite[]
+
+  @@map("hotels")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  name         String   @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  memberships HotelMembership[]
+  sessions    Session[]
+  calendarOAuthStates CalendarOAuthState[]
+  sentMembershipInvites MembershipInvite[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt], map: "idx_sessions_user_expiry")
+  @@index([expiresAt], map: "idx_sessions_expiry")
+  @@map("sessions")
+}
+
+model HotelMembership {
+  id        String         @id @default(uuid()) @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  hotelId   String         @map("hotel_id") @db.Uuid
+  role      MembershipRole @default(FRONT_DESK)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, hotelId], map: "unique_user_hotel")
+  @@index([hotelId, role], map: "idx_memberships_hotel_role")
+  @@map("hotel_memberships")
+}
+
+model MembershipInvite {
+  id          String         @id @default(uuid()) @db.Uuid
+  hotelId     String         @map("hotel_id") @db.Uuid
+  invitedById String         @map("invited_by_id") @db.Uuid
+  email       String         @db.VarChar(255)
+  role        MembershipRole @default(FRONT_DESK)
+  tokenHash   String         @unique @map("token_hash") @db.VarChar(64)
+  expiresAt   DateTime       @map("expires_at") @db.Timestamptz(6)
+  acceptedAt  DateTime?      @map("accepted_at") @db.Timestamptz(6)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  hotel     Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  invitedBy User  @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([hotelId, email], map: "unique_hotel_invite_email")
+  @@index([hotelId, expiresAt], map: "idx_membership_invites_hotel_expiry")
+  @@map("membership_invites")
+}
+
+model RoomType {
+  id          String   @id @default(uuid()) @db.Uuid
+  hotelId     String   @map("hotel_id") @db.Uuid
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  basePrice   Decimal  @map("base_price") @db.Decimal(12, 2)
+  maxCapacity Int      @map("max_capacity")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel Hotel  @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  rooms Room[]
+
+  @@unique([hotelId, name], map: "unique_hotel_room_type_name")
+  @@unique([hotelId, id], map: "unique_room_type_tenant_id")
+  @@map("room_types")
+}
+
+model Room {
+  id         String     @id @default(uuid()) @db.Uuid
+  hotelId    String     @map("hotel_id") @db.Uuid
+  roomNumber String     @map("room_number") @db.VarChar(50)
+  roomTypeId String     @map("room_type_id") @db.Uuid
+  floor      String?    @db.VarChar(20)
+  status     RoomStatus @default(AVAILABLE)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  roomType          RoomType           @relation(fields: [hotelId, roomTypeId], references: [hotelId, id], onDelete: Restrict)
+  roomReservations  RoomReservation[]
+  housekeepingTasks HousekeepingTask[]
+
+  @@unique([hotelId, roomNumber], map: "unique_hotel_room_number")
+  @@unique([hotelId, id], map: "unique_room_tenant_id")
+  @@index([hotelId, status], map: "idx_rooms_hotel_status")
+  @@map("rooms")
+}
+
+model Guest {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  name      String   @db.VarChar(255)
+  email     String   @db.VarChar(255)
+  phone     String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel       Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings    Booking[]
+  guestRequests GuestRequest[]
+
+  @@unique([hotelId, email], map: "unique_hotel_guest_email")
+  @@unique([hotelId, id], map: "unique_guest_tenant_id")
+  @@index([hotelId, name], map: "idx_guests_hotel_name")
+  @@map("guests")
+}
+
+model Booking {
+  id           String        @id @default(uuid()) @db.Uuid
+  hotelId      String        @map("hotel_id") @db.Uuid
+  guestId      String        @map("guest_id") @db.Uuid
+  status       BookingStatus @default(CONFIRMED)
+  checkInDate  DateTime      @map("check_in_date") @db.Date
+  checkOutDate DateTime      @map("check_out_date") @db.Date
+  guestsCount  Int           @default(1) @map("guests_count")
+  totalAmount  Decimal       @map("total_amount") @db.Decimal(12, 2)
+  specialReq   String?       @map("special_req") @db.Text
+  source       String        @default("DIRECT") @db.VarChar(30)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel            Hotel             @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guest            Guest             @relation(fields: [hotelId, guestId], references: [hotelId, id], onDelete: Restrict)
+  roomReservations RoomReservation[]
+  invoice          Invoice?
+  guestRequests    GuestRequest[]
+  calendarEvent    CalendarEvent?
+
+  @@unique([hotelId, id], map: "unique_booking_tenant_id")
+  @@index([hotelId, status, checkInDate], map: "idx_bookings_hotel_status_checkin")
+  @@index([hotelId, checkInDate, checkOutDate], map: "idx_bookings_hotel_dates")
+  @@map("bookings")
+}
+
+model RoomReservation {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  roomId    String   @map("room_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [hotelId, bookingId], references: [hotelId, id], onDelete: Cascade)
+  room    Room    @relation(fields: [hotelId, roomId], references: [hotelId, id], onDelete: Restrict)
+
+  @@unique([bookingId, roomId], map: "unique_booking_room")
+  @@index([hotelId, roomId], map: "idx_reservations_hotel_room")
+  @@map("room_reservations")
+}
+
+model Invoice {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  bookingId String   @unique @map("booking_id") @db.Uuid
+  totalDue  Decimal  @map("total_due") @db.Decimal(12, 2)
+  isVoided  Boolean  @default(false) @map("is_voided")
+  dueAt     DateTime? @map("due_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  booking  Booking   @relation(fields: [hotelId, bookingId], references: [hotelId, id], onDelete: Restrict)
+  payments Payment[]
+
+  @@unique([hotelId, id], map: "unique_invoice_tenant_id")
+  @@unique([hotelId, bookingId], map: "unique_invoice_tenant_booking")
+  @@index([hotelId, dueAt], map: "idx_invoices_hotel_due")
+  @@map("invoices")
+}
+
+model Payment {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  invoiceId String   @map("invoice_id") @db.Uuid
+  amount    Decimal  @db.Decimal(12, 2)
+  method    String   @db.VarChar(50)
+  reference String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  hotel   Hotel   @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [hotelId, invoiceId], references: [hotelId, id], onDelete: Cascade)
+
+  @@index([hotelId, invoiceId], map: "idx_payments_hotel_invoice")
+  @@map("payments")
+}
+
+model Employee {
+  id         String   @id @default(uuid()) @db.Uuid
+  hotelId    String   @map("hotel_id") @db.Uuid
+  name       String   @db.VarChar(255)
+  department String   @db.VarChar(100)
+  email      String   @db.VarChar(255)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel             Hotel              @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  schedules         StaffSchedule[]
+  housekeepingTasks HousekeepingTask[]
+
+  @@unique([hotelId, email], map: "unique_hotel_employee_email")
+  @@unique([hotelId, id], map: "unique_employee_tenant_id")
+  @@index([hotelId, department, isActive], map: "idx_employees_hotel_department")
+  @@map("employees")
+}
+
+model StaffSchedule {
+  id         String   @id @default(uuid()) @db.Uuid
+  hotelId    String   @map("hotel_id") @db.Uuid
+  employeeId String   @map("employee_id") @db.Uuid
+  shiftDate  DateTime @map("shift_date") @db.Date
+  startTime  String   @map("start_time") @db.VarChar(5)
+  endTime    String   @map("end_time") @db.VarChar(5)
+  notes      String?  @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  hotel    Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [hotelId, employeeId], references: [hotelId, id], onDelete: Cascade)
+
+  @@unique([hotelId, employeeId, shiftDate, startTime], map: "unique_employee_shift_start")
+  @@index([hotelId, shiftDate], map: "idx_staff_schedules_hotel_date")
+  @@map("staff_schedules")
+}
+
+model HousekeepingTask {
+  id          String             @id @default(uuid()) @db.Uuid
+  hotelId     String             @map("hotel_id") @db.Uuid
+  roomId      String             @map("room_id") @db.Uuid
+  employeeId  String?            @map("employee_id") @db.Uuid
+  title       String             @db.VarChar(255)
+  priority    String             @default("MEDIUM") @db.VarChar(20)
+  status      HousekeepingStatus @default(PENDING)
+  dueAt       DateTime?          @map("due_at") @db.Timestamptz(6)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel    Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  room     Room      @relation(fields: [hotelId, roomId], references: [hotelId, id], onDelete: Cascade)
+  employee Employee? @relation(fields: [hotelId, employeeId], references: [hotelId, id], onDelete: Restrict)
+
+  @@index([hotelId, status, dueAt], map: "idx_housekeeping_hotel_status_due")
+  @@map("housekeeping_tasks")
+}
+
+model GuestRequest {
+  id        String             @id @default(uuid()) @db.Uuid
+  hotelId   String             @map("hotel_id") @db.Uuid
+  guestId   String             @map("guest_id") @db.Uuid
+  bookingId String?            @map("booking_id") @db.Uuid
+  kind      String             @db.VarChar(100)
+  details   String?            @db.Text
+  status    GuestRequestStatus @default(OPEN)
+  createdAt DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel   Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  guest   Guest @relation(fields: [hotelId, guestId], references: [hotelId, id], onDelete: Cascade)
+  booking Booking? @relation(fields: [hotelId, bookingId], references: [hotelId, id], onDelete: Restrict)
+
+  @@index([hotelId, status, createdAt], map: "idx_guest_requests_hotel_status")
+  @@map("guest_requests")
+}
+
+model InboundEmail {
+  id          String   @id @default(uuid()) @db.Uuid
+  hotelId     String   @map("hotel_id") @db.Uuid
+  messageId   String?  @map("message_id") @db.VarChar(255)
+  sender      String   @db.VarChar(255)
+  subject     String?  @db.VarChar(500)
+  body        String   @db.Text
+  extraction  Json?
+  status      String   @default("REVIEW_REQUIRED") @db.VarChar(30)
+  receivedAt  DateTime @default(now()) @map("received_at") @db.Timestamptz(6)
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelId, messageId], map: "unique_hotel_inbound_message")
+  @@index([hotelId, status, receivedAt], map: "idx_inbound_emails_hotel_status")
+  @@map("inbound_emails")
+}
+
+model OutboundEmail {
+  id                String   @id @default(uuid()) @db.Uuid
+  hotelId           String   @map("hotel_id") @db.Uuid
+  recipient         String   @db.VarChar(255)
+  subject           String   @db.VarChar(500)
+  providerMessageId String?  @map("provider_message_id") @db.VarChar(255)
+  status            String   @default("SENT") @db.VarChar(30)
+  sentAt            DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@index([hotelId, sentAt], map: "idx_outbound_emails_hotel_sent")
+  @@map("outbound_emails")
+}
+
+model CalendarOAuthState {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  stateHash String   @unique @map("state_hash") @db.VarChar(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt], map: "idx_calendar_oauth_expiry")
+  @@map("calendar_oauth_states")
+}
+
+model GoogleCalendarIntegration {
+  id                       String   @id @default(uuid()) @db.Uuid
+  hotelId                  String   @unique @map("hotel_id") @db.Uuid
+  calendarId               String   @default("primary") @map("calendar_id") @db.VarChar(255)
+  encryptedRefreshToken    String   @map("encrypted_refresh_token") @db.Text
+  encryptedAccessToken     String?  @map("encrypted_access_token") @db.Text
+  accessTokenExpiresAt     DateTime? @map("access_token_expires_at") @db.Timestamptz(6)
+  createdAt                DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  hotel Hotel @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+
+  @@map("google_calendar_integrations")
+}
+
+model CalendarEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  hotelId   String   @map("hotel_id") @db.Uuid
+  bookingId String   @unique @map("booking_id") @db.Uuid
+  externalId String  @map("external_id") @db.VarChar(255)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  booking Booking @relation(fields: [hotelId, bookingId], references: [hotelId, id], onDelete: Cascade)
+
+  @@unique([hotelId, externalId], map: "unique_hotel_calendar_event")
+  @@unique([hotelId, bookingId], map: "unique_hotel_calendar_booking")
+  @@map("calendar_events")
+}

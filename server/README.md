@@ -1,37 +1,30 @@
-# StayFlow backend
+# StayFlow API server
 
-Phase 1 provides the Express and TypeScript API foundation. It uses strict TypeScript, Zod environment validation, Helmet, CORS, structured request logs, centralized errors, and a health endpoint.
+Express 5 and TypeScript API with Prisma 7, PostgreSQL, database-backed sessions, hotel membership/role checks, and operational routes.
 
-## Requirements
+See the [root README](../README.md) for setup and the root [API documentation](../API_DOCUMENTATION.md) and [database requirements](../DATABASE_REQUIREMENTS.md) for contracts and schema.
 
-- Node.js 20.6 or newer
-- npm
-
-## Setup
+## Local commands
 
 ```sh
-cd server
 npm install
-cp .env.example .env
-```
-
-Edit `.env` for the local environment. The sample `DATABASE_URL` is only a placeholder; no database connection is made while the teammate-managed Prisma schema is absent.
-
-## Development
-
-```sh
+cp -n .env.example .env  # leaves an existing .env untouched
+npm run prisma:validate
+npm run prisma:generate
+npm run prisma:migrate:deploy  # only for a new, empty development database
 npm run dev
 ```
 
-The API listens on `http://127.0.0.1:3000` by default. `GET /health` reports API status separately from database integration status.
+The default listener is `127.0.0.1:3000`. `GET /health` is a liveness endpoint; `GET /health/ready` checks PostgreSQL with `SELECT 1`.
 
-## Build and checks
+`npm run build` emits the production server at `dist/server.js`, which `npm start` launches.
+
+## Verification commands
 
 ```sh
 npm run typecheck
 npm run build
 npm test
-npm start
 ```
 
-The generated production entry point is `dist/server.js`. See [`DATABASE_REQUIREMENTS.md`](DATABASE_REQUIREMENTS.md) for the work needed to connect Prisma after the database schema is provided.
+External Google Calendar, SMTP, inbound email, and OpenAI settings are optional. Copy values from `.env.example` and never commit `.env`.
