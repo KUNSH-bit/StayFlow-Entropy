@@ -55,7 +55,7 @@ export function NavSidebar() {
           <span className="flex items-center gap-1"><i className="fa-solid fa-database text-blue-500"></i> Workspace</span>
           <span className={`w-2 h-2 rounded-full ${dataLoading ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`}></span>
         </div>
-        <p className="text-[11px] text-gray-500 dark:text-gray-400">{currentSession?.hotelName} · {dataLoading ? 'Refreshing data…' : 'Connected to StayFlow API'}</p>
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">{currentSession?.hotelName} · {dataLoading ? 'Refreshing data…' : 'Bypass Demo Active'}</p>
       </div>
     </aside>
   );

@@ -4,13 +4,13 @@ import { useHotel } from '@/store/HotelStore';
 const INPUT = 'w-full pl-9 pr-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-800/90 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all';
 
 export function LoginScreen() {
-  const { executeLogin, authLoading, authError } = useHotel();
+  const { executeLogin, authLoading, authError, bypassToDemo } = useHotel();
   const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? undefined);
   const [mode, setMode] = useState<'login' | 'register'>(inviteToken ? 'register' : 'login');
   const [name, setName] = useState('');
   const [hotelName, setHotelName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('reyansh@stayflow.internal');
+  const [password, setPassword] = useState('password12345');
 
   useEffect(() => {
     if (inviteToken) window.history.replaceState(null, '', window.location.pathname);
@@ -39,11 +39,42 @@ export function LoginScreen() {
           <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">StayFlow</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hotel operations, connected.</p>
 
-          <div className="grid grid-cols-2 p-1 bg-gray-200/70 dark:bg-gray-700/60 rounded-xl w-full my-6 text-sm font-semibold">
-            <button type="button" onClick={() => setMode('login')} className={`py-2.5 rounded-lg transition-all ${mode === 'login' ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-300 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:text-brand-600'}`}>
+          {/* Quick Bypass Button */}
+          <div className="w-full mt-5 mb-2 p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-brand-500/15 to-indigo-500/10 border border-brand-500/30 dark:border-brand-400/30 text-left">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-bold text-brand-600 dark:text-brand-300 flex items-center gap-1.5">
+                <i className="fa-solid fa-bolt text-amber-500 animate-pulse"></i>
+                <span>Instant Login Bypass</span>
+              </span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
+                Demo Ready
+              </span>
+            </div>
+            <p className="text-[11px] text-gray-600 dark:text-gray-300 mb-2.5">
+              Skip authentication entirely and jump straight into the full hotel workspace with preloaded rooms, reservations, staff, and analytics.
+            </p>
+            <button
+              type="button"
+              disabled={authLoading}
+              onClick={() => void bypassToDemo()}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-brand-600 hover:from-amber-600 hover:to-brand-700 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+            >
+              <i className="fa-solid fa-arrow-right-to-bracket text-xs"></i>
+              <span>Enter Hotel Workspace Directly</span>
+            </button>
+          </div>
+
+          <div className="relative flex py-3 items-center w-full">
+            <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
+            <span className="flex-shrink mx-3 text-[10px] uppercase font-bold tracking-wider text-gray-400">or sign in manually</span>
+            <div className="flex-grow border-t border-gray-300 dark:border-gray-700"></div>
+          </div>
+
+          <div className="grid grid-cols-2 p-1 bg-gray-200/70 dark:bg-gray-700/60 rounded-xl w-full mb-4 text-sm font-semibold">
+            <button type="button" onClick={() => setMode('login')} className={`py-2 rounded-lg transition-all ${mode === 'login' ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-300 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:text-brand-600'}`}>
               Sign in
             </button>
-            <button type="button" onClick={() => setMode('register')} className={`py-2.5 rounded-lg transition-all ${mode === 'register' ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-300 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:text-brand-600'}`}>
+            <button type="button" onClick={() => setMode('register')} className={`py-2 rounded-lg transition-all ${mode === 'register' ? 'bg-white dark:bg-gray-800 text-brand-600 dark:text-brand-300 shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:text-brand-600'}`}>
               Create account
             </button>
           </div>
@@ -55,7 +86,7 @@ export function LoginScreen() {
           )}
           {authError && <div role="alert" className="w-full text-left mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800 dark:border-red-800 dark:bg-red-900/30 dark:text-red-200">{authError}</div>}
 
-          <form onSubmit={onSubmit} className="w-full text-left space-y-4">
+          <form onSubmit={onSubmit} className="w-full text-left space-y-3.5">
             {mode === 'register' && (
               <>
                 <div>
@@ -78,8 +109,7 @@ export function LoginScreen() {
 
             <div>
               <label htmlFor="login-password" className="block text-[11px] font-bold uppercase tracking-wider text-gray-600 dark:text-gray-400 mb-1">Password</label>
-              <div className="relative"><i className="fa-solid fa-lock absolute left-3 top-3 text-gray-400 text-xs"></i><input type="password" id="login-password" required minLength={mode === 'register' ? 12 : 1} maxLength={128} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} className={INPUT} /></div>
-              {mode === 'register' && <p className="text-[10px] text-gray-500 mt-1">Use at least 12 characters.</p>}
+              <div className="relative"><i className="fa-solid fa-lock absolute left-3 top-3 text-gray-400 text-xs"></i><input type="password" id="login-password" required minLength={1} maxLength={128} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} value={password} onChange={(event) => setPassword(event.target.value)} className={INPUT} /></div>
             </div>
 
             <button type="submit" disabled={authLoading} className="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white font-semibold text-sm shadow-md transition-all flex items-center justify-center gap-2">
@@ -88,7 +118,7 @@ export function LoginScreen() {
             </button>
           </form>
 
-          {!inviteToken && <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 mt-5">New accounts create an owner account and a hotel workspace. Team access is managed by hotel owners.</p>}
+          {!inviteToken && <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 mt-4">Pre-filled with working demo credentials. Click sign-in or use the bypass button above.</p>}
         </div>
       </div>
     </div>

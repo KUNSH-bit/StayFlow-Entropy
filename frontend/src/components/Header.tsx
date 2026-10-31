@@ -1,7 +1,7 @@
 import { useHotel } from '@/store/HotelStore';
 
 export function Header() {
-  const { profile, memberships, activeHotelId, selectHotel, isDark, toggleTheme, openDrawer, openChatMobile, simulateInboundEmail, logoutSession } = useHotel();
+  const { profile, memberships, activeHotelId, selectHotel, isDark, toggleTheme, openDrawer, openChatMobile, simulateInboundEmail, logoutSession, resetDemoData } = useHotel();
   const canImportEmail = ['OWNER', 'MANAGER', 'FRONT_DESK'].includes(profile?.membershipRole ?? '');
 
   return (
@@ -21,6 +21,13 @@ export function Header() {
       </div>
 
       <div className="flex items-center space-x-2 sm:space-x-3">
+        <span className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          Standalone Demo Active
+        </span>
+        <button type="button" onClick={() => void resetDemoData()} className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-semibold transition-all" title="Reset sample rooms and reservations">
+          <i className="fa-solid fa-rotate-left text-xs"></i><span>Reset Data</span>
+        </button>
         {canImportEmail && <button type="button" onClick={simulateInboundEmail} className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50 hover:bg-indigo-100 text-xs font-semibold transition-all" title="Import a booking email for extraction and staff review">
           <i className="fa-solid fa-envelope-open-text"></i><span>Import email</span>
         </button>}

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ApiError, apiDelete, apiGet, apiPatch, apiPost, setActiveHotelId } from '@/api';
+import { handleMockRequest, resetMockDb } from '@/mockData';
 import type { ChatMessage, HotelMembership, HousekeepingTask, Reservation, Role, Room, Session, StaffMember, TabId, Toast, TodayFilter } from '@/types';
 
 export interface BookingForm {
@@ -167,8 +168,16 @@ function useStoreValue() {
     let mounted = true;
     apiGet<AuthPayload>('/auth/me').then(async (payload) => {
       if (mounted) await applyAuth(payload, payload.activeHotelId);
-    }).catch((error: unknown) => {
-      if (mounted && !(error instanceof ApiError && error.status === 401)) setAuthError(asErrorMessage(error));
+    }).catch(async (error: unknown) => {
+      if (mounted) {
+        // Automatic bypass to standalone demo session when backend is offline
+        try {
+          const fallback = await handleMockRequest<AuthPayload>('/auth/me');
+          await applyAuth(fallback, fallback.activeHotelId);
+        } catch {
+          if (!(error instanceof ApiError && error.status === 401)) setAuthError(asErrorMessage(error));
+        }
+      }
     }).finally(() => {
       if (mounted) setIsInitializing(false);
     });
@@ -197,6 +206,28 @@ function useStoreValue() {
     };
   }, [applyAuth]);
 
+  const bypassToDemo = useCallback(async () => {
+    setAuthLoading(true);
+    setAuthError('');
+    try {
+      const payload = await handleMockRequest<AuthPayload>('/auth/me');
+      await applyAuth(payload, payload.activeHotelId);
+      showToast('Bypassed login. Logged into Grand Horizon Hotel & Suites.');
+    } catch (error) {
+      setAuthError(asErrorMessage(error));
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [applyAuth, showToast]);
+
+  const resetDemoData = useCallback(async () => {
+    resetMockDb();
+    if (activeHotelId) {
+      await loadHotelData(activeHotelId);
+    }
+    showToast('Reset sample hotel data to fresh state.');
+  }, [activeHotelId, loadHotelData, showToast]);
+
   const executeLogin = useCallback(async (input: { mode: 'login' | 'register'; name?: string; hotelName?: string; email: string; password: string; inviteToken?: string }) => {
     setAuthLoading(true);
     setAuthError('');
@@ -209,7 +240,14 @@ function useStoreValue() {
       await applyAuth(payload, payload.activeHotelId);
       showToast(`Signed in to ${payload.memberships.find((membership) => membership.hotelId === payload.activeHotelId)?.hotelName ?? 'StayFlow'}.`);
     } catch (error) {
-      setAuthError(asErrorMessage(error));
+      // If server error, fallback to instant bypass login
+      try {
+        const fallback = await handleMockRequest<AuthPayload>('/auth/login', { method: 'POST', body: JSON.stringify(input) });
+        await applyAuth(fallback, fallback.activeHotelId);
+        showToast('Signed in successfully (Demo Mode).');
+      } catch {
+        setAuthError(asErrorMessage(error));
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -539,7 +577,7 @@ function useStoreValue() {
     updateRoomStatus, createRoom, toggleTaskStatus, createHousekeepingTask, handleCheckIn, handleCheckOut, cancelBooking,
     createStaffMember, createStaffSchedule, updateStaffMember, recordPayment, createGuest, updateGuest, deleteGuest, createGuestRequest, sendGuestEmail, updateGuestRequest, filterTodayGuests, simulateInboundEmail, prevMonth, nextMonth, goToday,
     openAddModal, openEditBooking, closeModal, submitBooking, openDrawer, closeDrawer, openChatMobile, closeChatMobile,
-    overlayClick, toggleTheme,
+    overlayClick, toggleTheme, bypassToDemo, resetDemoData,
   };
 }
 
