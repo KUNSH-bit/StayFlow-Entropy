@@ -15,7 +15,7 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "dev": "next dev".
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "vercel-build": "next build"
